@@ -289,6 +289,8 @@ class Cbt_Exam_Plugin_Public {
                 'percentage' => __( 'Percentage:', 'cbt-exam-plugin' ),
                 'passed' => __( 'Congratulations, you passed!', 'cbt-exam-plugin' ),
                 'failed' => __( 'Unfortunately, you did not pass.', 'cbt-exam-plugin' ),
+                'pending_review' => __( 'Your objective questions have been graded. Your final score will be available after your theory questions have been reviewed.', 'cbt-exam-plugin' ),
+                'objective_score' => __( 'Objective Score:', 'cbt-exam-plugin' ),
             )
         );
         wp_localize_script( $this->plugin_name . '-exam', 'cbtExamData', $script_data );
@@ -316,6 +318,7 @@ class Cbt_Exam_Plugin_Public {
 
         $score = 0;
         $total_objective = 0;
+        $has_theory = false;
 
         foreach ( $question_ids as $question_id ) {
             $question_type = get_post_meta( $question_id, '_cbt_question_type', true );
@@ -328,12 +331,15 @@ class Cbt_Exam_Plugin_Public {
                 if ( $correct_answer !== '' && $student_answer == $correct_answer ) {
                     $score++;
                 }
+            } else {
+                $has_theory = true;
             }
         }
 
         $pass_mark = get_post_meta( $exam_id, '_cbt_exam_pass_mark', true );
         $percentage = ( $total_objective > 0 ) ? ( $score / $total_objective ) * 100 : 0;
-        $passed = ( $pass_mark && $percentage >= $pass_mark ) ? true : false;
+        $grading_status = $has_theory ? 'pending' : 'graded';
+        $passed = ( ! $has_theory && $pass_mark && $percentage >= $pass_mark ) ? true : false;
 
         // Save the result to the database
         $user_id = get_current_user_id();
@@ -351,21 +357,30 @@ class Cbt_Exam_Plugin_Public {
             if ( ! is_wp_error( $result_id ) ) {
                 update_post_meta( $result_id, '_cbt_result_exam_id', $exam_id );
                 update_post_meta( $result_id, '_cbt_result_user_id', $user_id );
-                update_post_meta( $result_id, '_cbt_result_score', $score );
-                update_post_meta( $result_id, '_cbt_result_total', $total_objective );
-                update_post_meta( $result_id, '_cbt_result_percentage', round( $percentage, 2 ) );
-                update_post_meta( $result_id, '_cbt_result_passed', $passed );
+                update_post_meta( $result_id, '_cbt_result_objective_score', $score ); // Store objective score
+                update_post_meta( $result_id, '_cbt_result_total_objective', $total_objective );
                 update_post_meta( $result_id, '_cbt_result_answers', $answers );
+                update_post_meta( $result_id, '_cbt_grading_status', $grading_status );
+
+                // Only set final score if fully graded
+                if ( ! $has_theory ) {
+                    update_post_meta( $result_id, '_cbt_result_score', $score );
+                    update_post_meta( $result_id, '_cbt_result_percentage', round( $percentage, 2 ) );
+                    update_post_meta( $result_id, '_cbt_result_passed', $passed );
+                }
             }
         }
 
-        wp_send_json_success( array(
+        $response_data = array(
             'score' => $score,
             'total' => $total_objective,
             'percentage' => round( $percentage, 2 ),
             'passed' => $passed,
             'pass_mark' => $pass_mark,
-        ) );
+            'status' => $grading_status,
+        );
+
+        wp_send_json_success( $response_data );
     }
 
     /**

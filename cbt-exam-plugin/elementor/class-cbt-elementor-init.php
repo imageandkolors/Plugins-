@@ -108,10 +108,10 @@ final class CBT_Elementor_Init {
      */
     public function register_widgets( $widgets_manager ) {
         require_once( __DIR__ . '/widgets/class-exam-card-widget.php' );
-        // require_once( __DIR__ . '/widgets/class-question-display-widget.php' );
+        require_once( __DIR__ . '/widgets/class-result-table-widget.php' );
 
         $widgets_manager->register( new \Elementor_Exam_Card_Widget() );
-        // $widgets_manager->register( new \Elementor_Question_Display_Widget() );
+        $widgets_manager->register( new \Elementor_Result_Table_Widget() );
     }
 
     /**

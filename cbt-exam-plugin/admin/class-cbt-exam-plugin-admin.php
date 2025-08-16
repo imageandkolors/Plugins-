@@ -52,6 +52,364 @@ class Cbt_Exam_Plugin_Admin {
         $this->plugin_name = $plugin_name;
         $this->version = $version;
 
+        add_action( 'admin_menu', array( $this, 'add_admin_pages' ) );
+        add_action( 'admin_init', array( $this, 'handle_admin_actions' ) );
+    }
+
+    /**
+     * Add the import page to the admin menu.
+     *
+     * @since    1.3.0
+     */
+    public function add_admin_pages() {
+        // Import Questions page
+        add_submenu_page(
+            'edit.php?post_type=cbt_question',
+            __( 'Import Questions', 'cbt-exam-plugin' ),
+            __( 'Import Questions', 'cbt-exam-plugin' ),
+            'manage_options',
+            'cbt-question-import',
+            array( $this, 'render_import_page' )
+        );
+
+        // Manual Grading page
+        add_submenu_page(
+            'edit.php?post_type=cbt_question',
+            __( 'Manual Grading', 'cbt-exam-plugin' ),
+            __( 'Manual Grading', 'cbt-exam-plugin' ),
+            'manage_options',
+            'cbt-manual-grading',
+            array( $this, 'render_grading_page' )
+        );
+    }
+
+    /**
+     * Render the manual grading page.
+     *
+     * @since    1.3.0
+     */
+    public function render_grading_page() {
+        require_once plugin_dir_path( __FILE__ ) . 'class-cbt-grading-list-table.php';
+
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__( 'Manual Grading', 'cbt-exam-plugin' ) . '</h1>';
+
+        $action = isset( $_GET['action'] ) ? $_GET['action'] : 'list';
+        $result_id = isset( $_GET['result_id'] ) ? intval( $_GET['result_id'] ) : 0;
+
+        if ( 'grade' === $action && $result_id ) {
+            $this->render_single_grading_interface( $result_id );
+        } else {
+            echo '<p>' . esc_html__( 'Here you can grade exams that have theory questions and are pending review.', 'cbt-exam-plugin' ) . '</p>';
+            $list_table = new CBT_Grading_List_Table();
+            $list_table->prepare_items();
+            $list_table->display();
+        }
+
+        echo '</div>';
+    }
+
+    /**
+     * Render the interface for grading a single result.
+     *
+     * @since    1.3.0
+     * @param    int    $result_id    The ID of the result post.
+     */
+    private function render_single_grading_interface( $result_id ) {
+        // Placeholder for the single grading interface
+        echo '<h2>' . esc_html__( 'Grade Exam', 'cbt-exam-plugin' ) . '</h2>';
+        echo '<p>' . sprintf( __( 'Now grading result ID: %d', 'cbt-exam-plugin' ), $result_id ) . '</p>';
+    }
+
+    /**
+     * Render the import page.
+     *
+     * @since    1.3.0
+     */
+    public function render_import_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e( 'Import Questions from CSV', 'cbt-exam-plugin' ); ?></h1>
+            <p><?php _e( 'Upload a CSV file to import questions into the question bank.', 'cbt-exam-plugin' ); ?></p>
+
+            <form method="post" enctype="multipart/form-data">
+                <?php wp_nonce_field( 'cbt_import_questions_nonce', 'cbt_import_nonce' ); ?>
+                <p>
+                    <label for="csv_file"><?php _e( 'Choose a CSV file:', 'cbt-exam-plugin' ); ?></label>
+                    <input type="file" id="csv_file" name="csv_file" accept=".csv" required>
+                </p>
+                <p>
+                    <input type="submit" name="cbt_import_submit" class="button button-primary" value="<?php _e( 'Import Questions', 'cbt-exam-plugin' ); ?>" />
+                </p>
+            </form>
+
+            <h3><?php _e( 'CSV File Format Instructions', 'cbt-exam-plugin' ); ?></h3>
+            <p><?php _e( 'The CSV file must have the following columns in this specific order:', 'cbt-exam-plugin' ); ?></p>
+            <ol>
+                <li><strong>title</strong>: The question title.</li>
+                <li><strong>content</strong>: The main content/body of the question.</li>
+                <li><strong>type</strong>: The question type. Must be either <code>objective</code> or <code>theory</code>.</li>
+                <li><strong>options</strong>: For objective questions, a pipe-separated list of options (e.g., <code>Option A|Option B|Option C</code>). Leave empty for theory questions.</li>
+                <li><strong>correct_answer</strong>: For objective questions, the index of the correct answer (starting from 0). Leave empty for theory questions.</li>
+                <li><strong>time_limit</strong>: The time limit for the question in seconds. Leave empty for no limit.</li>
+                <li><strong>subject</strong>: The subject taxonomy term.</li>
+                <li><strong>topic</strong>: The topic taxonomy term.</li>
+                <li><strong>class_level</strong>: The class level taxonomy term.</li>
+            </ol>
+        </div>
+        <?php
+    }
+
+    /**
+     * Handle admin actions like import and grading.
+     *
+     * @since    1.3.0
+     */
+    public function handle_admin_actions() {
+        // Handle Question Import
+        if ( isset( $_POST['cbt_import_submit'] ) && isset( $_POST['cbt_import_nonce'] ) ) {
+            if ( ! wp_verify_nonce( $_POST['cbt_import_nonce'], 'cbt_import_questions_nonce' ) ) {
+                wp_die( 'Security check failed.' );
+            }
+            $this->process_question_import();
+        }
+
+        // Handle Grade Submission
+        if ( isset( $_POST['cbt_grade_submit'] ) && isset( $_POST['cbt_grade_nonce'] ) ) {
+            if ( ! wp_verify_nonce( $_POST['cbt_grade_nonce'], 'cbt_grade_submission_nonce' ) ) {
+                wp_die( 'Security check failed.' );
+            }
+            $this->process_grade_submission();
+        }
+    }
+
+    /**
+     * Process the grade submission.
+     *
+     * @since    1.3.0
+     */
+    private function process_grade_submission() {
+        $result_id = isset( $_POST['result_id'] ) ? intval( $_POST['result_id'] ) : 0;
+        $theory_scores = isset( $_POST['theory_scores'] ) ? $_POST['theory_scores'] : array();
+
+        if ( ! $result_id || ! current_user_can( 'manage_options' ) ) {
+            return;
+        }
+
+        $objective_score = (int) get_post_meta( $result_id, '_cbt_result_objective_score', true );
+        $theory_score = 0;
+        foreach( $theory_scores as $score ) {
+            $theory_score += (int) $score;
+        }
+
+        $total_score = $objective_score + $theory_score;
+
+        // Here you would also need to know the total possible score for theory questions
+        // to calculate a percentage. For now, we'll just save the raw score.
+
+        update_post_meta( $result_id, '_cbt_result_theory_score', $theory_score );
+        update_post_meta( $result_id, '_cbt_result_score', $total_score );
+        update_post_meta( $result_id, '_cbt_grading_status', 'graded' );
+
+        // Redirect back to the grading page
+        wp_redirect( admin_url( 'edit.php?post_type=cbt_question&page=cbt-manual-grading' ) );
+        exit;
+    }
+
+    /**
+     * Process the question import from CSV.
+     *
+     * @since    1.3.0
+     */
+    private function process_question_import() {
+        if ( ! isset( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] != 0 ) {
+            return;
+        }
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( 'You do not have permission to import questions.' );
+        }
+
+        $file = $_FILES['csv_file']['tmp_name'];
+        $handle = fopen( $file, "r" );
+        $imported = 0;
+        $failed = 0;
+
+        // Skip header row
+        fgetcsv( $handle, 1000, "," );
+
+        while ( ( $data = fgetcsv( $handle, 1000, "," ) ) !== FALSE ) {
+            // Create post object
+            $new_question = array(
+                'post_title'    => wp_strip_all_tags( $data[0] ),
+                'post_content'  => $data[1],
+                'post_type'     => 'cbt_question',
+                'post_status'   => 'publish',
+            );
+
+            // Insert the post into the database
+            $post_id = wp_insert_post( $new_question );
+
+            if ( $post_id ) {
+                // Set post meta
+                update_post_meta( $post_id, '_cbt_question_type', sanitize_text_field( $data[2] ) );
+                if ( $data[2] === 'objective' ) {
+                    $options = explode( '|', $data[3] );
+                    update_post_meta( $post_id, '_cbt_question_options', $options );
+                    update_post_meta( $post_id, '_cbt_correct_answer', sanitize_text_field( $data[4] ) );
+                }
+                update_post_meta( $post_id, '_cbt_question_time_limit', sanitize_text_field( $data[5] ) );
+
+                // Set taxonomies
+                wp_set_object_terms( $post_id, sanitize_text_field( $data[6] ), 'cbt_subject' );
+                wp_set_object_terms( $post_id, sanitize_text_field( $data[7] ), 'cbt_topic' );
+                wp_set_object_terms( $post_id, sanitize_text_field( $data[8] ), 'cbt_class_level' );
+
+                $imported++;
+            } else {
+                $failed++;
+            }
+        }
+        fclose( $handle );
+
+        // Add admin notice
+        add_action( 'admin_notices', function() use ( $imported, $failed ) {
+            ?>
+            <div class="notice notice-success is-dismissible">
+                <p><?php printf( __( 'Import complete. Successfully imported %d questions. Failed to import %d rows.', 'cbt-exam-plugin' ), $imported, $failed ); ?></p>
+            </div>
+            <?php
+        });
+    }
+
+    /**
+     * Render the interface for grading a single result.
+     *
+     * @since    1.3.0
+     * @param    int    $result_id    The ID of the result post.
+     */
+    private function render_single_grading_interface( $result_id ) {
+        $result = get_post( $result_id );
+        $exam_id = get_post_meta( $result_id, '_cbt_result_exam_id', true );
+        $student_id = $result->post_author;
+        $answers = get_post_meta( $result_id, '_cbt_result_answers', true );
+        $objective_score = get_post_meta( $result_id, '_cbt_result_objective_score', true );
+        $question_ids = get_post_meta( $exam_id, '_cbt_exam_questions', true );
+
+        $student = get_userdata( $student_id );
+        ?>
+        <h2><?php printf( __( 'Grading: %s', 'cbt-exam-plugin' ), get_the_title( $exam_id ) ); ?></h2>
+        <p><?php printf( __( 'Student: %s', 'cbt-exam-plugin' ), $student->display_name ); ?></p>
+        <p><strong><?php printf( __( 'Objective Score: %s', 'cbt-exam-plugin' ), $objective_score ); ?></strong></p>
+
+        <form method="post">
+            <input type="hidden" name="result_id" value="<?php echo esc_attr( $result_id ); ?>" />
+            <?php wp_nonce_field( 'cbt_grade_submission_nonce', 'cbt_grade_nonce' ); ?>
+
+            <table class="form-table">
+                <tbody>
+                <?php foreach ( $question_ids as $question_id ) :
+                    $question = get_post( $question_id );
+                    $question_type = get_post_meta( $question_id, '_cbt_question_type', true );
+
+                    if ( 'theory' !== $question_type ) {
+                        continue;
+                    }
+
+                    $student_answer = isset( $answers[ $question_id ] ) ? $answers[ $question_id ] : __( 'No answer submitted.', 'cbt-exam-plugin' );
+                    ?>
+                    <tr valign="top">
+                        <th scope="row">
+                            <strong><?php echo esc_html( $question->post_title ); ?></strong>
+                            <p><?php echo esc_html( $question->post_content ); ?></p>
+                        </th>
+                        <td>
+                            <strong><?php _e( 'Student Answer:', 'cbt-exam-plugin' ); ?></strong>
+                            <p><?php echo nl2br( esc_textarea( $student_answer ) ); ?></p>
+                            <label for="theory_score_<?php echo esc_attr( $question_id ); ?>"><?php _e( 'Score:', 'cbt-exam-plugin' ); ?></label>
+                            <input type="number" id="theory_score_<?php echo esc_attr( $question_id ); ?>" name="theory_scores[<?php echo esc_attr( $question_id ); ?>]" value="0" min="0" />
+                        </td>
+                    </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+
+            <?php submit_button( __( 'Save Grade', 'cbt-exam-plugin' ), 'primary', 'cbt_grade_submit' ); ?>
+        </form>
+        <?php
+    }
+
+    /**
+     * Handle the question import from CSV.
+     *
+     * @since    1.3.0
+     */
+    public function handle_question_import() {
+        if ( ! isset( $_POST['cbt_import_submit'] ) || ! isset( $_POST['cbt_import_nonce'] ) ) {
+            return;
+        }
+
+        if ( ! wp_verify_nonce( $_POST['cbt_import_nonce'], 'cbt_import_questions_nonce' ) ) {
+            wp_die( 'Security check failed.' );
+        }
+
+        if ( ! current_user_can( 'manage_options' ) ) {
+            wp_die( 'You do not have permission to import questions.' );
+        }
+
+        if ( isset( $_FILES['csv_file'] ) && $_FILES['csv_file']['error'] == 0 ) {
+            $file = $_FILES['csv_file']['tmp_name'];
+            $handle = fopen( $file, "r" );
+            $imported = 0;
+            $failed = 0;
+
+            // Skip header row
+            fgetcsv( $handle, 1000, "," );
+
+            while ( ( $data = fgetcsv( $handle, 1000, "," ) ) !== FALSE ) {
+                // Create post object
+                $new_question = array(
+                    'post_title'    => wp_strip_all_tags( $data[0] ),
+                    'post_content'  => $data[1],
+                    'post_type'     => 'cbt_question',
+                    'post_status'   => 'publish',
+                );
+
+                // Insert the post into the database
+                $post_id = wp_insert_post( $new_question );
+
+                if ( $post_id ) {
+                    // Set post meta
+                    update_post_meta( $post_id, '_cbt_question_type', sanitize_text_field( $data[2] ) );
+                    if ( $data[2] === 'objective' ) {
+                        $options = explode( '|', $data[3] );
+                        update_post_meta( $post_id, '_cbt_question_options', $options );
+                        update_post_meta( $post_id, '_cbt_correct_answer', sanitize_text_field( $data[4] ) );
+                    }
+                    update_post_meta( $post_id, '_cbt_question_time_limit', sanitize_text_field( $data[5] ) );
+
+                    // Set taxonomies
+                    wp_set_object_terms( $post_id, sanitize_text_field( $data[6] ), 'cbt_subject' );
+                    wp_set_object_terms( $post_id, sanitize_text_field( $data[7] ), 'cbt_topic' );
+                    wp_set_object_terms( $post_id, sanitize_text_field( $data[8] ), 'cbt_class_level' );
+
+                    $imported++;
+                } else {
+                    $failed++;
+                }
+            }
+            fclose( $handle );
+
+            // Add admin notice
+            add_action( 'admin_notices', function() use ( $imported, $failed ) {
+                ?>
+                <div class="notice notice-success is-dismissible">
+                    <p><?php printf( __( 'Import complete. Successfully imported %d questions. Failed to import %d rows.', 'cbt-exam-plugin' ), $imported, $failed ); ?></p>
+                </div>
+                <?php
+            });
+
+        }
     }
 
     /**

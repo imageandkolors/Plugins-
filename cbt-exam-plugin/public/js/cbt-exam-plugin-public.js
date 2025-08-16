@@ -75,14 +75,25 @@
 
                 $.post(cbtExamData.ajax_url, formData, function(response) {
                     if (response.success) {
-                        const resultHtml = `
-                            <div class="cbt-results">
-                                <h2>${cbtExamData.text.results}</h2>
-                                <p>${cbtExamData.text.scored} ${response.data.score} / ${response.data.total}</p>
-                                <p>${cbtExamData.text.percentage} ${response.data.percentage}%</p>
-                                <p><strong>${response.data.passed ? cbtExamData.text.passed : cbtExamData.text.failed}</strong></p>
-                            </div>
-                        `;
+                        let resultHtml;
+                        if (response.data.status === 'pending') {
+                            resultHtml = `
+                                <div class="cbt-results">
+                                    <h2>${cbtExamData.text.results}</h2>
+                                    <p>${cbtExamData.text.pending_review}</p>
+                                    <p>${cbtExamData.text.objective_score} ${response.data.score} / ${response.data.total}</p>
+                                </div>
+                            `;
+                        } else {
+                            resultHtml = `
+                                <div class="cbt-results">
+                                    <h2>${cbtExamData.text.results}</h2>
+                                    <p>${cbtExamData.text.scored} ${response.data.score} / ${response.data.total}</p>
+                                    <p>${cbtExamData.text.percentage} ${response.data.percentage}%</p>
+                                    <p><strong>${response.data.passed ? cbtExamData.text.passed : cbtExamData.text.failed}</strong></p>
+                                </div>
+                            `;
+                        }
                         examWrapper.html(resultHtml);
                     } else {
                         alert('An error occurred: ' + response.data.message);
