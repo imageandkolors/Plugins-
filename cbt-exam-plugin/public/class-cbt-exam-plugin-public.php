@@ -61,6 +61,101 @@ class Cbt_Exam_Plugin_Public {
      */
     public function register_shortcodes() {
         add_shortcode( 'cbt_exam', array( $this, 'render_exam_shortcode' ) );
+        add_shortcode( 'cbt_dashboard', array( $this, 'render_dashboard_shortcode' ) );
+    }
+
+    /**
+     * Render the [cbt_dashboard] shortcode.
+     *
+     * @since    1.2.0
+     * @return   string   The shortcode output.
+     */
+    public function render_dashboard_shortcode() {
+        if ( ! is_user_logged_in() ) {
+            return '<p>' . __( 'You must be logged in to view your dashboard.', 'cbt-exam-plugin' ) . '</p>';
+        }
+
+        $user_id = get_current_user_id();
+
+        // Get completed exams
+        $completed_results_query = new \WP_Query( array(
+            'post_type' => 'cbt_result',
+            'author' => $user_id,
+            'posts_per_page' => -1,
+        ) );
+
+        $completed_exams = [];
+        $completed_exam_ids = [];
+        if ( $completed_results_query->have_posts() ) {
+            while ( $completed_results_query->have_posts() ) {
+                $completed_results_query->the_post();
+                $exam_id = get_post_meta( get_the_ID(), '_cbt_result_exam_id', true );
+                $completed_exams[] = [
+                    'exam_title' => get_the_title( $exam_id ),
+                    'score' => get_post_meta( get_the_ID(), '_cbt_result_score', true ),
+                    'total' => get_post_meta( get_the_ID(), '_cbt_result_total', true ),
+                    'percentage' => get_post_meta( get_the_ID(), '_cbt_result_percentage', true ),
+                    'date' => get_the_date(),
+                ];
+                $completed_exam_ids[] = $exam_id;
+            }
+        }
+        wp_reset_postdata();
+
+        // Get upcoming exams
+        $all_exams_query = new \WP_Query( array(
+            'post_type' => 'cbt_exam',
+            'posts_per_page' => -1,
+            'post__not_in' => $completed_exam_ids,
+        ) );
+
+        ob_start();
+        ?>
+        <div class="cbt-dashboard">
+            <h2><?php _e( 'My Exam Dashboard', 'cbt-exam-plugin' ); ?></h2>
+
+            <h3><?php _e( 'Upcoming Exams', 'cbt-exam-plugin' ); ?></h3>
+            <?php if ( $all_exams_query->have_posts() ) : ?>
+                <ul>
+                    <?php while ( $all_exams_query->have_posts() ) : $all_exams_query->the_post(); ?>
+                        <li>
+                            <a href="<?php the_permalink(); ?>"><?php the_title(); ?></a>
+                        </li>
+                    <?php endwhile; ?>
+                </ul>
+            <?php else : ?>
+                <p><?php _e( 'You have no upcoming exams.', 'cbt-exam-plugin' ); ?></p>
+            <?php endif; ?>
+            <?php wp_reset_postdata(); ?>
+
+            <h3><?php _e( 'Completed Exams', 'cbt-exam-plugin' ); ?></h3>
+            <?php if ( ! empty( $completed_exams ) ) : ?>
+                <table>
+                    <thead>
+                        <tr>
+                            <th><?php _e( 'Exam', 'cbt-exam-plugin' ); ?></th>
+                            <th><?php _e( 'Score', 'cbt-exam-plugin' ); ?></th>
+                            <th><?php _e( 'Percentage', 'cbt-exam-plugin' ); ?></th>
+                            <th><?php _e( 'Date', 'cbt-exam-plugin' ); ?></th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ( $completed_exams as $exam ) : ?>
+                            <tr>
+                                <td><?php echo esc_html( $exam['exam_title'] ); ?></td>
+                                <td><?php echo esc_html( $exam['score'] . ' / ' . $exam['total'] ); ?></td>
+                                <td><?php echo esc_html( $exam['percentage'] ); ?>%</td>
+                                <td><?php echo esc_html( $exam['date'] ); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else : ?>
+                <p><?php _e( 'You have not completed any exams yet.', 'cbt-exam-plugin' ); ?></p>
+            <?php endif; ?>
+        </div>
+        <?php
+        return ob_get_clean();
     }
 
     /**
@@ -86,6 +181,11 @@ class Cbt_Exam_Plugin_Public {
 
         $duration = get_post_meta( $exam_id, '_cbt_exam_duration', true );
         $question_ids = get_post_meta( $exam_id, '_cbt_exam_questions', true );
+        $randomize = get_post_meta( $exam_id, '_cbt_randomize_questions', true );
+
+        if ( $randomize ) {
+            shuffle( $question_ids );
+        }
 
         if ( empty( $question_ids ) ) {
             return '<p>' . __( 'This exam has no questions.', 'cbt-exam-plugin' ) . '</p>';
@@ -100,12 +200,9 @@ class Cbt_Exam_Plugin_Public {
 
         ob_start();
         ?>
-        <div id="cbt-exam-wrapper" class="cbt-exam-wrapper" data-exam-id="<?php echo esc_attr( $exam_id ); ?>" data-duration="<?php echo esc_attr( $duration ); ?>">
+        <div id="cbt-exam-wrapper" class="cbt-exam-wrapper" data-exam-id="<?php echo esc_attr( $exam_id ); ?>">
             <div class="cbt-exam-header">
                 <h2><?php echo get_the_title( $exam_id ); ?></h2>
-                <div class="cbt-timer">
-                    <?php _e( 'Time Remaining:', 'cbt-exam-plugin' ); ?> <span id="cbt-time-display"></span>
-                </div>
             </div>
             <div class="cbt-exam-body">
                 <form id="cbt-exam-form">
@@ -113,9 +210,15 @@ class Cbt_Exam_Plugin_Public {
                     <?php foreach ( $questions as $index => $question ) :
                         $question_type = get_post_meta( $question->ID, '_cbt_question_type', true );
                         $options = get_post_meta( $question->ID, '_cbt_question_options', true );
+                        $time_limit = get_post_meta( $question->ID, '_cbt_question_time_limit', true );
                         ?>
-                        <div class="cbt-question" id="cbt-question-<?php echo $index; ?>" style="<?php echo $index > 0 ? 'display: none;' : ''; ?>">
+                        <div class="cbt-question" id="cbt-question-<?php echo $index; ?>" style="<?php echo $index > 0 ? 'display: none;' : ''; ?>" data-time-limit="<?php echo esc_attr( $time_limit ); ?>">
                             <h3><?php echo $question->post_title; ?></h3>
+                            <?php if ( $time_limit ) : ?>
+                                <div class="cbt-question-timer">
+                                    <?php _e( 'Time for this question:', 'cbt-exam-plugin' ); ?> <span class="cbt-question-time-display"></span>
+                                </div>
+                            <?php endif; ?>
                             <div class="cbt-question-content">
                                 <?php echo apply_filters( 'the_content', $question->post_content ); ?>
                             </div>
@@ -232,8 +335,29 @@ class Cbt_Exam_Plugin_Public {
         $percentage = ( $total_objective > 0 ) ? ( $score / $total_objective ) * 100 : 0;
         $passed = ( $pass_mark && $percentage >= $pass_mark ) ? true : false;
 
-        // Here you would typically save the result to the database.
-        // For now, we just return the result.
+        // Save the result to the database
+        $user_id = get_current_user_id();
+        if ( $user_id ) {
+            $result_post = array(
+                'post_title'   => 'Result for ' . get_the_title( $exam_id ) . ' by user ' . $user_id,
+                'post_content' => '',
+                'post_status'  => 'publish',
+                'post_author'  => $user_id,
+                'post_type'    => 'cbt_result',
+            );
+
+            $result_id = wp_insert_post( $result_post );
+
+            if ( ! is_wp_error( $result_id ) ) {
+                update_post_meta( $result_id, '_cbt_result_exam_id', $exam_id );
+                update_post_meta( $result_id, '_cbt_result_user_id', $user_id );
+                update_post_meta( $result_id, '_cbt_result_score', $score );
+                update_post_meta( $result_id, '_cbt_result_total', $total_objective );
+                update_post_meta( $result_id, '_cbt_result_percentage', round( $percentage, 2 ) );
+                update_post_meta( $result_id, '_cbt_result_passed', $passed );
+                update_post_meta( $result_id, '_cbt_result_answers', $answers );
+            }
+        }
 
         wp_send_json_success( array(
             'score' => $score,

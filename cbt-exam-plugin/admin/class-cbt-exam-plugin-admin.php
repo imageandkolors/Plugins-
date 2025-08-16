@@ -100,6 +100,7 @@ class Cbt_Exam_Plugin_Admin {
 
         $duration = get_post_meta( $post->ID, '_cbt_exam_duration', true );
         $pass_mark = get_post_meta( $post->ID, '_cbt_exam_pass_mark', true );
+        $randomize = get_post_meta( $post->ID, '_cbt_randomize_questions', true );
         ?>
         <p>
             <label for="cbt_exam_duration"><?php _e( 'Duration (in minutes)', 'cbt-exam-plugin' ); ?></label>
@@ -108,6 +109,12 @@ class Cbt_Exam_Plugin_Admin {
         <p>
             <label for="cbt_exam_pass_mark"><?php _e( 'Pass Mark (%)', 'cbt-exam-plugin' ); ?></label>
             <input type="number" id="cbt_exam_pass_mark" name="cbt_exam_pass_mark" value="<?php echo esc_attr( $pass_mark ); ?>" min="0" max="100" />
+        </p>
+        <p>
+            <label for="cbt_randomize_questions">
+                <input type="checkbox" id="cbt_randomize_questions" name="cbt_randomize_questions" value="1" <?php checked( $randomize, '1' ); ?> />
+                <?php _e( 'Randomize Questions', 'cbt-exam-plugin' ); ?>
+            </label>
         </p>
         <?php
     }
@@ -167,6 +174,11 @@ class Cbt_Exam_Plugin_Admin {
             if ( isset( $_POST['cbt_exam_pass_mark'] ) ) {
                 update_post_meta( $post_id, '_cbt_exam_pass_mark', sanitize_text_field( $_POST['cbt_exam_pass_mark'] ) );
             }
+            if ( isset( $_POST['cbt_randomize_questions'] ) ) {
+                update_post_meta( $post_id, '_cbt_randomize_questions', '1' );
+            } else {
+                update_post_meta( $post_id, '_cbt_randomize_questions', '0' );
+            }
         }
 
         // Save Questions
@@ -194,9 +206,16 @@ class Cbt_Exam_Plugin_Admin {
         $question_type = get_post_meta( $post->ID, '_cbt_question_type', true );
         $options = get_post_meta( $post->ID, '_cbt_question_options', true );
         $correct_answer = get_post_meta( $post->ID, '_cbt_correct_answer', true );
+        $time_limit = get_post_meta( $post->ID, '_cbt_question_time_limit', true );
 
         ?>
         <div class="cbt-meta-box">
+            <p>
+                <label for="cbt_question_time_limit"><?php _e( 'Time Limit (in seconds)', 'cbt-exam-plugin' ); ?></label>
+                <input type="number" id="cbt_question_time_limit" name="cbt_question_time_limit" value="<?php echo esc_attr( $time_limit ); ?>" />
+                <br>
+                <small><?php _e( 'Leave blank for no time limit.', 'cbt-exam-plugin' ); ?></small>
+            </p>
             <p>
                 <label for="cbt_question_type"><?php _e( 'Question Type', 'cbt-exam-plugin' ); ?></label>
                 <select name="cbt_question_type" id="cbt_question_type">
@@ -277,6 +296,10 @@ class Cbt_Exam_Plugin_Admin {
             update_post_meta( $post_id, '_cbt_question_type', sanitize_text_field( $_POST['cbt_question_type'] ) );
         }
 
+        if ( isset( $_POST['cbt_question_time_limit'] ) ) {
+            update_post_meta( $post_id, '_cbt_question_time_limit', sanitize_text_field( $_POST['cbt_question_time_limit'] ) );
+        }
+
         if ( isset( $_POST['cbt_question_options'] ) ) {
             $options = array_map( 'sanitize_text_field', $_POST['cbt_question_options'] );
             update_post_meta( $post_id, '_cbt_question_options', $options );
@@ -297,6 +320,7 @@ class Cbt_Exam_Plugin_Admin {
     public function setup_post_types() {
         $this->register_question_post_type();
         $this->register_exam_post_type();
+        $this->register_result_post_type();
         $this->register_taxonomies();
     }
 
@@ -383,6 +407,45 @@ class Cbt_Exam_Plugin_Admin {
         );
 
         register_post_type( 'cbt_exam', $args );
+    }
+
+    /**
+     * Register the "Result" custom post type.
+     *
+     * @since    1.2.0
+     */
+    private function register_result_post_type() {
+        $labels = array(
+            'name'               => _x( 'Results', 'post type general name', 'cbt-exam-plugin' ),
+            'singular_name'      => _x( 'Result', 'post type singular name', 'cbt-exam-plugin' ),
+            'menu_name'          => _x( 'Results', 'admin menu', 'cbt-exam-plugin' ),
+            'name_admin_bar'     => _x( 'Result', 'add new on admin bar', 'cbt-exam-plugin' ),
+            'add_new'            => _x( 'Add New', 'result', 'cbt-exam-plugin' ),
+            'add_new_item'       => __( 'Add New Result', 'cbt-exam-plugin' ),
+            'new_item'           => __( 'New Result', 'cbt-exam-plugin' ),
+            'edit_item'          => __( 'Edit Result', 'cbt-exam-plugin' ),
+            'view_item'          => __( 'View Result', 'cbt-exam-plugin' ),
+            'all_items'          => __( 'All Results', 'cbt-exam-plugin' ),
+            'search_items'       => __( 'Search Results', 'cbt-exam-plugin' ),
+            'parent_item_colon'  => __( 'Parent Results:', 'cbt-exam-plugin' ),
+            'not_found'          => __( 'No results found.', 'cbt-exam-plugin' ),
+            'not_found_in_trash' => __( 'No results found in Trash.', 'cbt-exam-plugin' )
+        );
+
+        $args = array(
+            'labels'             => $labels,
+            'description'        => __( 'Stores exam results for students.', 'cbt-exam-plugin' ),
+            'public'             => false,
+            'publicly_queryable' => false,
+            'show_ui'            => true, // Show in admin for debugging
+            'show_in_menu'       => 'edit.php?post_type=cbt_question',
+            'capability_type'    => 'post',
+            'has_archive'        => false,
+            'hierarchical'       => false,
+            'supports'           => array( 'title', 'author' ),
+        );
+
+        register_post_type( 'cbt_result', $args );
     }
 
     /**

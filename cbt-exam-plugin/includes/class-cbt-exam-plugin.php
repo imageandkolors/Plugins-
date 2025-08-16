@@ -79,7 +79,22 @@ class Cbt_Exam_Plugin {
         $this->set_locale();
         $this->define_admin_hooks();
         $this->define_public_hooks();
+        $this->include_elementor_integration();
 
+    }
+
+    /**
+     * Include the Elementor integration file.
+     *
+     * @since    1.1.0
+     * @access   private
+     */
+    private function include_elementor_integration() {
+        // Check if Elementor is loaded before trying to include the integration.
+        // The integration file itself has checks, but this is an extra layer.
+        if ( did_action( 'elementor/loaded' ) ) {
+            require_once plugin_dir_path( dirname( __FILE__ ) ) . 'elementor/class-cbt-elementor-init.php';
+        }
     }
 
     /**

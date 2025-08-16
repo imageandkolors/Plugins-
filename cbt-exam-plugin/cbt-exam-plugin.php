@@ -32,6 +32,18 @@ require plugin_dir_path( __FILE__ ) . 'includes/class-cbt-exam-plugin.php';
  *
  * @since    1.0.0
  */
+/**
+ * The code that runs during plugin activation.
+ * This action is documented in includes/class-cbt-exam-plugin-activator.php
+ */
+function activate_cbt_exam_plugin() {
+    require_once plugin_dir_path( __FILE__ ) . 'includes/class-cbt-exam-plugin-activator.php';
+    Cbt_Exam_Plugin_Activator::activate();
+}
+
+register_activation_hook( __FILE__, 'activate_cbt_exam_plugin' );
+
+
 function run_cbt_exam_plugin() {
 
     $plugin = new Cbt_Exam_Plugin();

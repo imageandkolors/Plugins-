@@ -15,22 +15,39 @@
             const form = $('#cbt-exam-form');
 
             let currentQuestion = 0;
-            let timer;
+            let questionTimer;
 
-            function startTimer(seconds) {
-                let remainingTime = seconds;
-                timer = setInterval(function() {
+            function startQuestionTimer(questionElement) {
+                clearInterval(questionTimer);
+                const timeLimit = parseInt(questionElement.data('time-limit'));
+                const timerDisplay = questionElement.find('.cbt-question-time-display');
+
+                if (isNaN(timeLimit) || timeLimit <= 0) {
+                    timerDisplay.text('No limit');
+                    return;
+                }
+
+                let remainingTime = timeLimit;
+
+                questionTimer = setInterval(function() {
                     const minutes = Math.floor(remainingTime / 60);
                     const secs = remainingTime % 60;
 
-                    timeDisplay.text(
+                    timerDisplay.text(
                         `${minutes.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
                     );
 
                     if (--remainingTime < 0) {
-                        clearInterval(timer);
-                        timeDisplay.text('Time Up!');
-                        submitExam();
+                        clearInterval(questionTimer);
+                        timerDisplay.text('Time Up!');
+                        // Auto-advance to next question
+                        if (currentQuestion < totalQuestions - 1) {
+                            currentQuestion++;
+                            showQuestion(currentQuestion);
+                        } else {
+                            // If it's the last question, submit the exam
+                            submitExam();
+                        }
                     }
                 }, 1000);
             }
@@ -42,8 +59,10 @@
 
             function showQuestion(index) {
                 questions.hide();
-                $(questions[index]).show();
+                const currentQuestionEl = $(questions[index]);
+                currentQuestionEl.show();
                 updateProgressBar();
+                startQuestionTimer(currentQuestionEl);
 
                 prevBtn.toggle(index > 0);
                 nextBtn.toggle(index < totalQuestions - 1);
@@ -51,7 +70,7 @@
             }
 
             function submitExam() {
-                clearInterval(timer);
+                clearInterval(questionTimer);
                 const formData = form.serialize() + '&action=' + cbtExamData.action + '&nonce=' + cbtExamData.nonce;
 
                 $.post(cbtExamData.ajax_url, formData, function(response) {
@@ -94,7 +113,6 @@
             });
 
             // Initialize
-            startTimer(duration);
             showQuestion(currentQuestion);
         }
     });
