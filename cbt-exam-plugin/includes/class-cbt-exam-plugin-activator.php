@@ -30,6 +30,8 @@ class Cbt_Exam_Plugin_Activator {
      * @since    1.2.0
      */
     public static function activate() {
+        self::setup_roles();
+
         // Create dashboard page
         $dashboard_page = array(
             'post_title'    => wp_strip_all_tags( 'Exam Dashboard' ),
@@ -51,4 +53,28 @@ class Cbt_Exam_Plugin_Activator {
         }
     }
 
+    /**
+     * Setup the custom roles and capabilities.
+     *
+     * @since    1.4.0
+     */
+    public static function setup_roles() {
+        // Teacher role
+        $teacher_caps = get_role( 'editor' )->capabilities;
+        $teacher_caps['manage_exams'] = true;
+        $teacher_caps['grade_exams'] = true;
+        $teacher_caps['view_exam_reports'] = true;
+        add_role( 'cbt_teacher', 'Teacher', $teacher_caps );
+
+        // Parent role
+        $parent_caps = get_role( 'subscriber' )->capabilities;
+        $parent_caps['view_child_results'] = true;
+        add_role( 'cbt_parent', 'Parent', $parent_caps );
+
+        // Add caps to admin
+        $admin_role = get_role( 'administrator' );
+        $admin_role->add_cap( 'manage_exams' );
+        $admin_role->add_cap( 'grade_exams' );
+        $admin_role->add_cap( 'view_exam_reports' );
+    }
 }

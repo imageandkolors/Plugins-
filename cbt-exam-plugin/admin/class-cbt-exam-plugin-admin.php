@@ -54,6 +54,133 @@ class Cbt_Exam_Plugin_Admin {
 
         add_action( 'admin_menu', array( $this, 'add_admin_pages' ) );
         add_action( 'admin_init', array( $this, 'handle_admin_actions' ) );
+        add_action( 'admin_init', array( $this, 'register_settings' ) );
+        add_action( 'show_user_profile', array( $this, 'add_user_profile_fields' ) );
+        add_action( 'edit_user_profile', array( $this, 'add_user_profile_fields' ) );
+        add_action( 'personal_options_update', array( $this, 'save_user_profile_fields' ) );
+        add_action( 'edit_user_profile_update', array( $this, 'save_user_profile_fields' ) );
+    }
+
+    /**
+     * Add custom fields to the user profile page.
+     *
+     * @since    1.4.0
+     * @param    WP_User    $user    The user object.
+     */
+    public function add_user_profile_fields( $user ) {
+        if ( ! in_array( 'cbt_parent', (array) $user->roles ) ) {
+            return;
+        }
+
+        $children = get_users( ['role' => 'subscriber'] ); // Assuming students are subscribers
+        $linked_children = get_user_meta( $user->ID, '_cbt_linked_children', true );
+        if ( ! is_array( $linked_children ) ) {
+            $linked_children = [];
+        }
+
+        ?>
+        <h3><?php _e( 'Parent/Child Linking', 'cbt-exam-plugin' ); ?></h3>
+        <table class="form-table">
+            <tr>
+                <th><label for="linked_children"><?php _e( 'Linked Children', 'cbt-exam-plugin' ); ?></label></th>
+                <td>
+                    <select name="linked_children[]" id="linked_children" multiple="multiple" style="min-width: 200px;">
+                        <?php foreach ( $children as $child ) : ?>
+                            <option value="<?php echo esc_attr( $child->ID ); ?>" <?php selected( in_array( $child->ID, $linked_children ) ); ?>>
+                                <?php echo esc_html( $child->display_name ); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <p class="description"><?php _e( 'Select the student accounts linked to this parent.', 'cbt-exam-plugin' ); ?></p>
+                </td>
+            </tr>
+        </table>
+        <?php
+    }
+
+    /**
+     * Save the custom user profile fields.
+     *
+     * @since    1.4.0
+     * @param    int    $user_id    The user ID.
+     */
+    public function save_user_profile_fields( $user_id ) {
+        if ( ! current_user_can( 'edit_user', $user_id ) ) {
+            return false;
+        }
+
+        if ( isset( $_POST['linked_children'] ) ) {
+            $children_ids = array_map( 'intval', $_POST['linked_children'] );
+            update_user_meta( $user_id, '_cbt_linked_children', $children_ids );
+        } else {
+            delete_user_meta( $user_id, '_cbt_linked_children' );
+        }
+    }
+
+    /**
+     * Register the settings for the plugin.
+     *
+     * @since    1.4.0
+     */
+    public function register_settings() {
+        register_setting(
+            'cbt_exam_settings_group',
+            'cbt_exam_options',
+            array( 'sanitize_callback' => array( $this, 'sanitize_settings' ) )
+        );
+
+        add_settings_section(
+            'cbt_exam_general_section',
+            __( 'General Settings', 'cbt-exam-plugin' ),
+            array( $this, 'render_general_section' ),
+            'cbt-exam-plugin'
+        );
+
+        add_settings_field(
+            'default_randomization',
+            __( 'Default Randomization', 'cbt-exam-plugin' ),
+            array( $this, 'render_default_randomization_field' ),
+            'cbt-exam-plugin',
+            'cbt_exam_general_section'
+        );
+    }
+
+    /**
+     * Sanitize the settings.
+     *
+     * @since    1.4.0
+     * @param    array    $input    The input from the settings form.
+     * @return   array              The sanitized input.
+     */
+    public function sanitize_settings( $input ) {
+        $new_input = array();
+        if ( isset( $input['default_randomization'] ) ) {
+            $new_input['default_randomization'] = absint( $input['default_randomization'] );
+        }
+        return $new_input;
+    }
+
+    /**
+     * Render the general section description.
+     *
+     * @since    1.4.0
+     */
+    public function render_general_section() {
+        echo '<p>' . __( 'General settings for the CBT Exam plugin.', 'cbt-exam-plugin' ) . '</p>';
+    }
+
+    /**
+     * Render the default randomization field.
+     *
+     * @since    1.4.0
+     */
+    public function render_default_randomization_field() {
+        $options = get_option( 'cbt_exam_options' );
+        $checked = isset( $options['default_randomization'] ) ? $options['default_randomization'] : 0;
+        ?>
+        <input type="checkbox" name="cbt_exam_options[default_randomization]" value="1" <?php checked( $checked, 1 ); ?> />
+        <label><?php _e( 'Enable question randomization for all new exams by default.', 'cbt-exam-plugin' ); ?></label>
+        <?php
     }
 
     /**
@@ -62,25 +189,143 @@ class Cbt_Exam_Plugin_Admin {
      * @since    1.3.0
      */
     public function add_admin_pages() {
+        // Add top-level menu page
+        add_menu_page(
+            __( 'CBT Exam', 'cbt-exam-plugin' ),
+            __( 'CBT Exam', 'cbt-exam-plugin' ),
+            'manage_options',
+            'cbt-exam-plugin',
+            array( $this, 'render_settings_page' ),
+            'dashicons-welcome-learn-more',
+            20
+        );
+
         // Import Questions page
         add_submenu_page(
-            'edit.php?post_type=cbt_question',
+            'cbt-exam-plugin',
             __( 'Import Questions', 'cbt-exam-plugin' ),
             __( 'Import Questions', 'cbt-exam-plugin' ),
-            'manage_options',
+            'manage_exams',
             'cbt-question-import',
             array( $this, 'render_import_page' )
         );
 
         // Manual Grading page
         add_submenu_page(
-            'edit.php?post_type=cbt_question',
+            'cbt-exam-plugin',
             __( 'Manual Grading', 'cbt-exam-plugin' ),
             __( 'Manual Grading', 'cbt-exam-plugin' ),
-            'manage_options',
+            'grade_exams',
             'cbt-manual-grading',
             array( $this, 'render_grading_page' )
         );
+
+        // Exam Reports page
+        add_submenu_page(
+            'cbt-exam-plugin',
+            __( 'Exam Reports', 'cbt-exam-plugin' ),
+            __( 'Exam Reports', 'cbt-exam-plugin' ),
+            'view_exam_reports',
+            'cbt-exam-reports',
+            array( $this, 'render_reports_page' )
+        );
+    }
+
+    /**
+     * Render the reports page.
+     *
+     * @since    1.4.0
+     */
+    public function render_reports_page() {
+        require_once plugin_dir_path( __FILE__ ) . 'class-cbt-exam-reports-list-table.php';
+        require_once plugin_dir_path( __FILE__ ) . 'class-cbt-exam-results-list-table.php';
+
+        echo '<div class="wrap">';
+        echo '<h1>' . esc_html__( 'Exam Reports', 'cbt-exam-plugin' ) . '</h1>';
+
+        $action = isset( $_GET['action'] ) ? $_GET['action'] : 'list';
+        $exam_id = isset( $_GET['exam_id'] ) ? intval( $_GET['exam_id'] ) : 0;
+        $result_id = isset( $_GET['result_id'] ) ? intval( $_GET['result_id'] ) : 0;
+
+        if ( 'view_submission' === $action && $result_id ) {
+            $this->render_single_submission_view( $result_id );
+        }
+        else if ( 'view_exam_report' === $action && $exam_id ) {
+            $this->render_single_exam_report( $exam_id );
+        } else {
+            $list_table = new CBT_Exam_Reports_List_Table();
+            $list_table->prepare_items();
+            $list_table->display();
+        }
+
+        echo '</div>';
+    }
+
+    /**
+     * Render the report for a single exam.
+     *
+     * @since    1.4.0
+     * @param    int    $exam_id    The ID of the exam.
+     */
+    private function render_single_exam_report( $exam_id ) {
+        echo '<h2>' . sprintf( __( 'Report for: %s', 'cbt-exam-plugin' ), get_the_title( $exam_id ) ) . '</h2>';
+        $list_table = new CBT_Exam_Results_List_Table( $exam_id );
+        $list_table->prepare_items();
+        $list_table->display();
+    }
+
+    /**
+     * Render the view for a single submission.
+     *
+     * @since    1.4.0
+     * @param    int    $result_id    The ID of the result post.
+     */
+    private function render_single_submission_view( $result_id ) {
+        $result = get_post( $result_id );
+        $exam_id = get_post_meta( $result_id, '_cbt_result_exam_id', true );
+        $student = get_userdata( $result->post_author );
+        $answers = get_post_meta( $result_id, '_cbt_result_answers', true );
+        $question_ids = get_post_meta( $exam_id, '_cbt_exam_questions', true );
+
+        echo '<h2>' . sprintf( __( 'Submission by %s for %s', 'cbt-exam-plugin' ), $student->display_name, get_the_title( $exam_id ) ) . '</h2>';
+
+        foreach( $question_ids as $question_id ) {
+            $question = get_post( $question_id );
+            $question_type = get_post_meta( $question_id, '_cbt_question_type', true );
+            $student_answer = isset( $answers[ $question_id ] ) ? $answers[ $question_id ] : 'N/A';
+
+            echo '<h4>' . $question->post_title . '</h4>';
+            echo '<p><strong>' . __( 'Student Answer:', 'cbt-exam-plugin' ) . '</strong> ';
+            if ( $question_type === 'objective' ) {
+                $options = get_post_meta( $question_id, '_cbt_question_options', true );
+                $correct_answer_index = get_post_meta( $question_id, '_cbt_correct_answer', true );
+                echo esc_html( $options[ $student_answer ] );
+                echo ' (' . ( $student_answer == $correct_answer_index ? 'Correct' : 'Incorrect' ) . ')';
+            } else {
+                echo nl2br( esc_textarea( $student_answer ) );
+            }
+            echo '</p>';
+        }
+    }
+
+    /**
+     * Render the settings page.
+     *
+     * @since    1.4.0
+     */
+    public function render_settings_page() {
+        ?>
+        <div class="wrap">
+            <h1><?php _e( 'CBT Exam Settings', 'cbt-exam-plugin' ); ?></h1>
+            <form method="post" action="options.php">
+                <?php
+                    settings_fields( 'cbt_exam_settings_group' );
+                    do_settings_sections( 'cbt-exam-plugin' );
+                    submit_button();
+                ?>
+            </form>
+        </div>
+        <?php
     }
 
     /**
@@ -459,6 +704,11 @@ class Cbt_Exam_Plugin_Admin {
         $duration = get_post_meta( $post->ID, '_cbt_exam_duration', true );
         $pass_mark = get_post_meta( $post->ID, '_cbt_exam_pass_mark', true );
         $randomize = get_post_meta( $post->ID, '_cbt_randomize_questions', true );
+
+        if ( '' === $randomize ) {
+            $options = get_option( 'cbt_exam_options' );
+            $randomize = isset( $options['default_randomization'] ) ? $options['default_randomization'] : 0;
+        }
         ?>
         <p>
             <label for="cbt_exam_duration"><?php _e( 'Duration (in minutes)', 'cbt-exam-plugin' ); ?></label>
@@ -711,7 +961,7 @@ class Cbt_Exam_Plugin_Admin {
             'public'             => true,
             'publicly_queryable' => true,
             'show_ui'            => true,
-            'show_in_menu'       => true,
+            'show_in_menu'       => 'cbt-exam-plugin',
             'query_var'          => true,
             'rewrite'            => array( 'slug' => 'question' ),
             'capability_type'    => 'post',
@@ -754,7 +1004,7 @@ class Cbt_Exam_Plugin_Admin {
             'public'             => true,
             'publicly_queryable' => true,
             'show_ui'            => true,
-            'show_in_menu'       => 'edit.php?post_type=cbt_question',
+            'show_in_menu'       => 'cbt-exam-plugin',
             'query_var'          => true,
             'rewrite'            => array( 'slug' => 'exam' ),
             'capability_type'    => 'post',
@@ -796,7 +1046,7 @@ class Cbt_Exam_Plugin_Admin {
             'public'             => false,
             'publicly_queryable' => false,
             'show_ui'            => true, // Show in admin for debugging
-            'show_in_menu'       => 'edit.php?post_type=cbt_question',
+            'show_in_menu'       => 'cbt-exam-plugin',
             'capability_type'    => 'post',
             'has_archive'        => false,
             'hierarchical'       => false,

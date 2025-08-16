@@ -75,8 +75,46 @@ class Cbt_Exam_Plugin_Public {
             return '<p>' . __( 'You must be logged in to view your dashboard.', 'cbt-exam-plugin' ) . '</p>';
         }
 
-        $user_id = get_current_user_id();
+        $current_user = wp_get_current_user();
 
+        ob_start();
+
+        if ( in_array( 'cbt_parent', (array) $current_user->roles ) ) {
+            // Parent view
+            $linked_children = get_user_meta( $current_user->ID, '_cbt_linked_children', true );
+            if ( empty( $linked_children ) ) {
+                echo '<p>' . __( 'You do not have any children linked to your account.', 'cbt-exam-plugin' ) . '</p>';
+                return ob_get_clean();
+            }
+
+            $selected_child_id = isset( $_GET['student_id'] ) ? intval( $_GET['student_id'] ) : $linked_children[0];
+
+            echo '<form method="get">';
+            echo '<select name="student_id" onchange="this.form.submit()">';
+            foreach( $linked_children as $child_id ) {
+                $child = get_userdata( $child_id );
+                echo '<option value="' . esc_attr( $child_id ) . '" ' . selected( $selected_child_id, $child_id, false ) . '>' . esc_html( $child->display_name ) . '</option>';
+            }
+            echo '</select>';
+            echo '</form>';
+
+            $this->display_student_dashboard( $selected_child_id );
+
+        } else {
+            // Student view
+            $this->display_student_dashboard( $current_user->ID );
+        }
+
+        return ob_get_clean();
+    }
+
+    /**
+     * Display the dashboard for a given student ID.
+     *
+     * @since    1.4.0
+     * @param    int    $user_id    The ID of the student.
+     */
+    private function display_student_dashboard( $user_id ) {
         // Get completed exams
         $completed_results_query = new \WP_Query( array(
             'post_type' => 'cbt_result',
@@ -93,7 +131,7 @@ class Cbt_Exam_Plugin_Public {
                 $completed_exams[] = [
                     'exam_title' => get_the_title( $exam_id ),
                     'score' => get_post_meta( get_the_ID(), '_cbt_result_score', true ),
-                    'total' => get_post_meta( get_the_ID(), '_cbt_result_total', true ),
+                    'total' => get_post_meta( get_the_ID(), '_cbt_result_total_objective', true ),
                     'percentage' => get_post_meta( get_the_ID(), '_cbt_result_percentage', true ),
                     'date' => get_the_date(),
                 ];
@@ -108,12 +146,8 @@ class Cbt_Exam_Plugin_Public {
             'posts_per_page' => -1,
             'post__not_in' => $completed_exam_ids,
         ) );
-
-        ob_start();
         ?>
         <div class="cbt-dashboard">
-            <h2><?php _e( 'My Exam Dashboard', 'cbt-exam-plugin' ); ?></h2>
-
             <h3><?php _e( 'Upcoming Exams', 'cbt-exam-plugin' ); ?></h3>
             <?php if ( $all_exams_query->have_posts() ) : ?>
                 <ul>
@@ -155,7 +189,6 @@ class Cbt_Exam_Plugin_Public {
             <?php endif; ?>
         </div>
         <?php
-        return ob_get_clean();
     }
 
     /**
