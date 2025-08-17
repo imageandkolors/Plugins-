@@ -2,10 +2,33 @@
     'use strict';
 
     $(function() {
+        const consentScreen = $('#cbt-proctoring-consent');
+        const grantAccessBtn = $('#cbt-grant-access-btn');
         const examWrapper = $('#cbt-exam-wrapper');
-        if (examWrapper.length) {
-            const duration = parseInt(examWrapper.data('duration')) * 60;
-            const timeDisplay = $('#cbt-time-display');
+        const videoWrapper = $('#cbt-proctoring-video-wrapper');
+        const videoEl = $('#cbt-proctoring-video')[0];
+
+        if (grantAccessBtn.length) {
+            grantAccessBtn.on('click', function() {
+                navigator.mediaDevices.getUserMedia({ video: true, audio: true })
+                    .then(function(stream) {
+                        videoEl.srcObject = stream;
+                        consentScreen.hide();
+                        examWrapper.show();
+                        videoWrapper.show();
+                        initializeExam();
+                    })
+                    .catch(function(err) {
+                        alert('You must grant access to your webcam and microphone to start the exam.');
+                        console.error("getUserMedia error", err);
+                    });
+            });
+        } else if (examWrapper.length) {
+            // If proctoring is not enabled, initialize immediately
+            initializeExam();
+        }
+
+        function initializeExam() {
             const questions = $('.cbt-question');
             const totalQuestions = questions.length;
             const prevBtn = $('#cbt-prev-btn');

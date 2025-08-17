@@ -52,6 +52,59 @@ class Cbt_Exam_Plugin_Public {
         $this->plugin_name = $plugin_name;
         $this->version = $version;
 
+        add_action( 'init', array( $this, 'download_certificate_handler' ) );
+    }
+
+    /**
+     * Handle the certificate download request.
+     *
+     * @since    1.5.0
+     */
+    public function download_certificate_handler() {
+        if ( ! isset( $_GET['action'] ) || 'download_certificate' !== $_GET['action'] ) {
+            return;
+        }
+
+        $result_id = isset( $_GET['result_id'] ) ? intval( $_GET['result_id'] ) : 0;
+        $nonce = isset( $_GET['nonce'] ) ? $_GET['nonce'] : '';
+
+        if ( ! $result_id || ! $nonce || ! wp_verify_nonce( $nonce, 'cbt_download_cert_' . $result_id ) ) {
+            wp_die( 'Invalid request.' );
+        }
+
+        $result = get_post( $result_id );
+        $user_id = get_current_user_id();
+
+        // Security check: ensure user has permission to view this certificate
+        if ( $user_id != $result->post_author && ! current_user_can( 'manage_options' ) ) {
+            // A more robust check would involve checking parent/teacher roles
+            wp_die( 'You do not have permission to view this certificate.' );
+        }
+
+        $exam_id = get_post_meta( $result_id, '_cbt_result_exam_id', true );
+
+        // Assume Mpdf is in vendor directory. This is a simplification.
+        // In a real plugin, you'd use Composer's autoloader.
+        require_once plugin_dir_path( dirname( __FILE__ ) ) . 'vendor/mpdf/mpdf/src/Mpdf.php';
+
+        $mpdf = new \Mpdf\Mpdf();
+
+        $title = get_post_meta( $exam_id, '_cbt_certificate_title', true );
+        $body = get_post_meta( $exam_id, '_cbt_certificate_body', true );
+        $student = get_userdata( $result->post_author );
+        $score = get_post_meta( $result_id, '_cbt_result_score', true );
+
+        // Replace placeholders
+        $body = str_replace( '[student_name]', $student->display_name, $body );
+        $body = str_replace( '[exam_name]', get_the_title( $exam_id ), $body );
+        $body = str_replace( '[completion_date]', get_the_date( '', $result_id ), $body );
+        $body = str_replace( '[score]', $score, $body );
+
+        $html = "<h1>{$title}</h1><p>{$body}</p>";
+
+        $mpdf->WriteHTML( $html );
+        $mpdf->Output( 'certificate.pdf', 'D' ); // D for download
+        die();
     }
 
     /**
@@ -129,10 +182,13 @@ class Cbt_Exam_Plugin_Public {
                 $completed_results_query->the_post();
                 $exam_id = get_post_meta( get_the_ID(), '_cbt_result_exam_id', true );
                 $completed_exams[] = [
+                    'result_id' => get_the_ID(),
+                    'exam_id' => $exam_id,
                     'exam_title' => get_the_title( $exam_id ),
                     'score' => get_post_meta( get_the_ID(), '_cbt_result_score', true ),
                     'total' => get_post_meta( get_the_ID(), '_cbt_result_total_objective', true ),
                     'percentage' => get_post_meta( get_the_ID(), '_cbt_result_percentage', true ),
+                    'passed' => get_post_meta( get_the_ID(), '_cbt_result_passed', true ),
                     'date' => get_the_date(),
                 ];
                 $completed_exam_ids[] = $exam_id;
@@ -171,6 +227,7 @@ class Cbt_Exam_Plugin_Public {
                             <th><?php _e( 'Score', 'cbt-exam-plugin' ); ?></th>
                             <th><?php _e( 'Percentage', 'cbt-exam-plugin' ); ?></th>
                             <th><?php _e( 'Date', 'cbt-exam-plugin' ); ?></th>
+                            <th><?php _e( 'Certificate', 'cbt-exam-plugin' ); ?></th>
                         </tr>
                     </thead>
                     <tbody>
@@ -180,6 +237,19 @@ class Cbt_Exam_Plugin_Public {
                                 <td><?php echo esc_html( $exam['score'] . ' / ' . $exam['total'] ); ?></td>
                                 <td><?php echo esc_html( $exam['percentage'] ); ?>%</td>
                                 <td><?php echo esc_html( $exam['date'] ); ?></td>
+                                <td>
+                                    <?php
+                                    $enable_cert = get_post_meta( $exam['exam_id'], '_cbt_enable_certificate', true );
+                                    if ( $enable_cert && $exam['passed'] ) {
+                                        $cert_url = add_query_arg( [
+                                            'action' => 'download_certificate',
+                                            'result_id' => $exam['result_id'],
+                                            'nonce' => wp_create_nonce( 'cbt_download_cert_' . $exam['result_id'] )
+                                        ], site_url() );
+                                        echo '<a href="' . esc_url( $cert_url ) . '" class="button">' . __( 'Download', 'cbt-exam-plugin' ) . '</a>';
+                                    }
+                                    ?>
+                                </td>
                             </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -215,6 +285,7 @@ class Cbt_Exam_Plugin_Public {
         $duration = get_post_meta( $exam_id, '_cbt_exam_duration', true );
         $question_ids = get_post_meta( $exam_id, '_cbt_exam_questions', true );
         $randomize = get_post_meta( $exam_id, '_cbt_randomize_questions', true );
+        $proctoring_enabled = get_post_meta( $exam_id, '_cbt_enable_proctoring', true );
 
         if ( $randomize ) {
             shuffle( $question_ids );
@@ -233,11 +304,24 @@ class Cbt_Exam_Plugin_Public {
 
         ob_start();
         ?>
-        <div id="cbt-exam-wrapper" class="cbt-exam-wrapper" data-exam-id="<?php echo esc_attr( $exam_id ); ?>">
-            <div class="cbt-exam-header">
-                <h2><?php echo get_the_title( $exam_id ); ?></h2>
-            </div>
-            <div class="cbt-exam-body">
+        <div id="cbt-exam-container">
+
+            <?php if ( $proctoring_enabled ) : ?>
+                <div id="cbt-proctoring-consent">
+                    <h2><?php _e( 'Exam Proctoring Enabled', 'cbt-exam-plugin' ); ?></h2>
+                    <p><?php _e( 'This exam is proctored. You must grant access to your webcam and microphone to continue.', 'cbt-exam-plugin' ); ?></p>
+                    <button id="cbt-grant-access-btn" class="button button-primary"><?php _e( 'Grant Access', 'cbt-exam-plugin' ); ?></button>
+                </div>
+                <div id="cbt-proctoring-video-wrapper" style="display: none; position: fixed; bottom: 10px; right: 10px; border: 2px solid #ccc; z-index: 9999;">
+                    <video id="cbt-proctoring-video" width="200" autoplay muted></video>
+                </div>
+            <?php endif; ?>
+
+            <div id="cbt-exam-wrapper" class="cbt-exam-wrapper" data-exam-id="<?php echo esc_attr( $exam_id ); ?>" style="<?php echo $proctoring_enabled ? 'display: none;' : ''; ?>">
+                <div class="cbt-exam-header">
+                    <h2><?php echo get_the_title( $exam_id ); ?></h2>
+                </div>
+                <div class="cbt-exam-body">
                 <form id="cbt-exam-form">
                     <input type="hidden" name="exam_id" value="<?php echo esc_attr( $exam_id ); ?>">
                     <?php foreach ( $questions as $index => $question ) :

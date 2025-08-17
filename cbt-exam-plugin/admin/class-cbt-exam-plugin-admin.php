@@ -690,6 +690,45 @@ class Cbt_Exam_Plugin_Admin {
             'normal',
             'high'
         );
+        add_meta_box(
+            'cbt_certificate_settings',
+            __( 'Certificate Settings', 'cbt-exam-plugin' ),
+            array( $this, 'render_certificate_settings_meta_box' ),
+            'cbt_exam',
+            'normal',
+            'high'
+        );
+    }
+
+    /**
+     * Render the meta box for "Certificate Settings".
+     *
+     * @since    1.5.0
+     * @param    WP_Post    $post    The post object.
+     */
+    public function render_certificate_settings_meta_box( $post ) {
+        wp_nonce_field( 'cbt_certificate_settings_meta_box', 'cbt_certificate_settings_meta_box_nonce' );
+
+        $enable_certificate = get_post_meta( $post->ID, '_cbt_enable_certificate', true );
+        $certificate_title = get_post_meta( $post->ID, '_cbt_certificate_title', true );
+        $certificate_body = get_post_meta( $post->ID, '_cbt_certificate_body', true );
+        ?>
+        <p>
+            <label>
+                <input type="checkbox" name="cbt_enable_certificate" value="1" <?php checked( $enable_certificate, '1' ); ?> />
+                <?php _e( 'Enable Certificate Generation for this Exam', 'cbt-exam-plugin' ); ?>
+            </label>
+        </p>
+        <p>
+            <label for="cbt_certificate_title"><?php _e( 'Certificate Title', 'cbt-exam-plugin' ); ?></label>
+            <input type="text" id="cbt_certificate_title" name="cbt_certificate_title" value="<?php echo esc_attr( $certificate_title ); ?>" class="widefat" />
+        </p>
+        <p>
+            <label for="cbt_certificate_body"><?php _e( 'Certificate Body', 'cbt-exam-plugin' ); ?></label>
+            <textarea id="cbt_certificate_body" name="cbt_certificate_body" class="widefat" rows="5"><?php echo esc_textarea( $certificate_body ); ?></textarea>
+            <small><?php _e( 'Use placeholders like [student_name], [exam_name], [completion_date], [score].', 'cbt-exam-plugin' ); ?></small>
+        </p>
+        <?php
     }
 
     /**
@@ -722,6 +761,12 @@ class Cbt_Exam_Plugin_Admin {
             <label for="cbt_randomize_questions">
                 <input type="checkbox" id="cbt_randomize_questions" name="cbt_randomize_questions" value="1" <?php checked( $randomize, '1' ); ?> />
                 <?php _e( 'Randomize Questions', 'cbt-exam-plugin' ); ?>
+            </label>
+        </p>
+        <p>
+            <label for="cbt_enable_proctoring">
+                <input type="checkbox" id="cbt_enable_proctoring" name="cbt_enable_proctoring" value="1" <?php checked( get_post_meta( $post->ID, '_cbt_enable_proctoring', true ), '1' ); ?> />
+                <?php _e( 'Enable AI Proctoring', 'cbt-exam-plugin' ); ?>
             </label>
         </p>
         <?php
@@ -786,6 +831,26 @@ class Cbt_Exam_Plugin_Admin {
                 update_post_meta( $post_id, '_cbt_randomize_questions', '1' );
             } else {
                 update_post_meta( $post_id, '_cbt_randomize_questions', '0' );
+            }
+            if ( isset( $_POST['cbt_enable_proctoring'] ) ) {
+                update_post_meta( $post_id, '_cbt_enable_proctoring', '1' );
+            } else {
+                update_post_meta( $post_id, '_cbt_enable_proctoring', '0' );
+            }
+        }
+
+        // Save Certificate Settings
+        if ( isset( $_POST['cbt_certificate_settings_meta_box_nonce'] ) && wp_verify_nonce( $_POST['cbt_certificate_settings_meta_box_nonce'], 'cbt_certificate_settings_meta_box' ) ) {
+            if ( isset( $_POST['cbt_enable_certificate'] ) ) {
+                update_post_meta( $post_id, '_cbt_enable_certificate', '1' );
+            } else {
+                update_post_meta( $post_id, '_cbt_enable_certificate', '0' );
+            }
+            if ( isset( $_POST['cbt_certificate_title'] ) ) {
+                update_post_meta( $post_id, '_cbt_certificate_title', sanitize_text_field( $_POST['cbt_certificate_title'] ) );
+            }
+            if ( isset( $_POST['cbt_certificate_body'] ) ) {
+                update_post_meta( $post_id, '_cbt_certificate_body', sanitize_textarea_field( $_POST['cbt_certificate_body'] ) );
             }
         }
 
