@@ -416,6 +416,9 @@ class Cbt_Exam_Plugin_Admin {
             if ( ! wp_verify_nonce( $_POST['cbt_import_nonce'], 'cbt_import_questions_nonce' ) ) {
                 wp_die( 'Security check failed.' );
             }
+            if ( ! current_user_can( 'manage_exams' ) ) {
+                wp_die( 'You do not have permission to import questions.' );
+            }
             $this->process_question_import();
         }
 
@@ -423,6 +426,9 @@ class Cbt_Exam_Plugin_Admin {
         if ( isset( $_POST['cbt_grade_submit'] ) && isset( $_POST['cbt_grade_nonce'] ) ) {
             if ( ! wp_verify_nonce( $_POST['cbt_grade_nonce'], 'cbt_grade_submission_nonce' ) ) {
                 wp_die( 'Security check failed.' );
+            }
+            if ( ! current_user_can( 'grade_exams' ) ) {
+                wp_die( 'You do not have permission to grade exams.' );
             }
             $this->process_grade_submission();
         }
@@ -437,7 +443,7 @@ class Cbt_Exam_Plugin_Admin {
         $result_id = isset( $_POST['result_id'] ) ? intval( $_POST['result_id'] ) : 0;
         $theory_scores = isset( $_POST['theory_scores'] ) ? $_POST['theory_scores'] : array();
 
-        if ( ! $result_id || ! current_user_can( 'manage_options' ) ) {
+        if ( ! $result_id ) {
             return;
         }
 
@@ -469,10 +475,6 @@ class Cbt_Exam_Plugin_Admin {
     private function process_question_import() {
         if ( ! isset( $_FILES['csv_file'] ) || $_FILES['csv_file']['error'] != 0 ) {
             return;
-        }
-
-        if ( ! current_user_can( 'manage_options' ) ) {
-            wp_die( 'You do not have permission to import questions.' );
         }
 
         $file = $_FILES['csv_file']['tmp_name'];
