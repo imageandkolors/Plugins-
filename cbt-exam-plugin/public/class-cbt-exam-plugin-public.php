@@ -76,8 +76,20 @@ class Cbt_Exam_Plugin_Public {
         $user_id = get_current_user_id();
 
         // Security check: ensure user has permission to view this certificate
-        if ( $user_id != $result->post_author && ! current_user_can( 'manage_options' ) ) {
-            // A more robust check would involve checking parent/teacher roles
+        $result_author_id = $result->post_author;
+        $is_owner = ( $user_id == $result_author_id );
+        $is_admin = current_user_can( 'manage_options' );
+        $is_teacher = current_user_can( 'grade_exams' );
+
+        $is_parent = false;
+        if ( in_array( 'cbt_parent', (array) wp_get_current_user()->roles ) ) {
+            $linked_children = get_user_meta( $user_id, '_cbt_linked_children', true );
+            if ( is_array( $linked_children ) && in_array( $result_author_id, $linked_children ) ) {
+                $is_parent = true;
+            }
+        }
+
+        if ( ! $is_owner && ! $is_admin && ! $is_teacher && ! $is_parent ) {
             wp_die( 'You do not have permission to view this certificate.' );
         }
 
