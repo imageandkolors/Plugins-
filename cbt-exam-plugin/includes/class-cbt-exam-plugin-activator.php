@@ -23,9 +23,7 @@
 class Cbt_Exam_Plugin_Activator {
 
     /**
-     * Short Description. (use period)
-     *
-     * Long Description.
+     * Main activation logic.
      *
      * @since    1.2.0
      */
@@ -59,22 +57,30 @@ class Cbt_Exam_Plugin_Activator {
      * @since    1.4.0
      */
     public static function setup_roles() {
-        // Teacher role
-        $teacher_caps = get_role( 'editor' )->capabilities;
-        $teacher_caps['manage_exams'] = true;
-        $teacher_caps['grade_exams'] = true;
-        $teacher_caps['view_exam_reports'] = true;
-        add_role( 'cbt_teacher', 'Teacher', $teacher_caps );
-
-        // Parent role
-        $parent_caps = get_role( 'subscriber' )->capabilities;
-        $parent_caps['view_child_results'] = true;
-        add_role( 'cbt_parent', 'Parent', $parent_caps );
-
-        // Add caps to admin
+        // Add custom capabilities to the administrator role
         $admin_role = get_role( 'administrator' );
-        $admin_role->add_cap( 'manage_exams' );
-        $admin_role->add_cap( 'grade_exams' );
-        $admin_role->add_cap( 'view_exam_reports' );
+        if ( ! is_null( $admin_role ) ) {
+            $admin_role->add_cap( 'manage_exams' );
+            $admin_role->add_cap( 'grade_exams' );
+            $admin_role->add_cap( 'view_exam_reports' );
+        }
+
+        // Teacher role based on Editor
+        $editor_role = get_role( 'editor' );
+        if ( ! is_null( $editor_role ) ) {
+            $teacher_caps = $editor_role->capabilities;
+            $teacher_caps['manage_exams'] = true;
+            $teacher_caps['grade_exams'] = true;
+            $teacher_caps['view_exam_reports'] = true;
+            add_role( 'cbt_teacher', 'Teacher', $teacher_caps );
+        }
+
+        // Parent role based on Subscriber
+        $subscriber_role = get_role( 'subscriber' );
+        if ( ! is_null( $subscriber_role ) ) {
+            $parent_caps = $subscriber_role->capabilities;
+            $parent_caps['view_child_results'] = true;
+            add_role( 'cbt_parent', 'Parent', $parent_caps );
+        }
     }
 }
