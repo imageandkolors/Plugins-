@@ -26,6 +26,7 @@ class Assets {
 
 		// Enqueue main app script.
 		wp_enqueue_script( 'lt-booking-app', LT_BOOKING_URL . 'assets/js/booking-app.js', [ 'jquery' ], LT_BOOKING_VERSION, true );
+		wp_enqueue_script( 'lt-admin-app', LT_BOOKING_URL . 'assets/js/admin-app.js', [ 'jquery' ], LT_BOOKING_VERSION, true );
 
 		// Localize script for API and nonces.
 		wp_localize_script( 'lt-booking-app', 'ltBookingData', [

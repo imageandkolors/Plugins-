@@ -130,7 +130,6 @@ document.addEventListener('alpine:init', () => {
             formData.append('nonce', ltBookingData.lt_nonce);
             formData.append('service_id', this.selectedService.id);
             formData.append('staff_id', this.selectedStaff.id);
-            formData.append('customer_id', 1); // Mock customer ID for now
             formData.append('booking_date', this.selectedDate);
             formData.append('start_time', this.selectedSlot.start);
             formData.append('notes', this.customer.notes);

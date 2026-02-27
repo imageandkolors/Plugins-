@@ -32,6 +32,12 @@ class BaseController extends WP_REST_Controller {
 
 		$staff_controller = new StaffController();
 		add_action( 'rest_api_init', [ $staff_controller, 'register_routes' ] );
+
+		$availability_controller = new AvailabilityController();
+		add_action( 'rest_api_init', [ $availability_controller, 'register_routes' ] );
+
+		$customer_controller = new CustomerController();
+		add_action( 'rest_api_init', [ $customer_controller, 'register_routes' ] );
 	}
 
 	/**

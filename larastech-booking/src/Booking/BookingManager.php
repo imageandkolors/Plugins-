@@ -22,8 +22,18 @@ class BookingManager {
 	 */
 	public function create_booking( $data ) {
 		// 1. Validate data.
-		if ( empty( $data['service_id'] ) || empty( $data['staff_id'] ) || empty( $data['customer_id'] ) || empty( $data['booking_date'] ) || empty( $data['start_time'] ) ) {
+		if ( empty( $data['service_id'] ) || empty( $data['staff_id'] ) || empty( $data['booking_date'] ) || empty( $data['start_time'] ) ) {
 			return new \WP_Error( 'missing_data', __( 'Required booking data is missing.', 'larastech-booking' ) );
+		}
+
+		// Handle Customer.
+		$customer_id = $data['customer_id'] ?? 0;
+		if ( ! $customer_id && ! empty( $data['customer_email'] ) ) {
+			$customer_id = $this->get_or_create_customer( $data );
+		}
+
+		if ( ! $customer_id ) {
+			return new \WP_Error( 'missing_customer', __( 'Customer information is missing.', 'larastech-booking' ) );
 		}
 
 		// Calculate end time based on service duration.
@@ -51,7 +61,7 @@ class BookingManager {
 		$booking_data = [
 			'service_id'   => $data['service_id'],
 			'staff_id'     => $data['staff_id'],
-			'customer_id'  => $data['customer_id'],
+			'customer_id'  => $customer_id,
 			'booking_date' => $data['booking_date'],
 			'start_time'   => $start_time,
 			'end_time'     => $end_time,
@@ -77,6 +87,28 @@ class BookingManager {
 		Logger::log( "Booking created successfully: ID $booking_id" );
 
 		return $booking_id;
+	}
+
+	/**
+	 * Get or create a customer by email.
+	 */
+	private function get_or_create_customer( $data ) {
+		global $wpdb;
+		$table = $wpdb->prefix . 'larastech_customers';
+
+		$email = sanitize_email( $data['customer_email'] );
+		$id = $wpdb->get_var( $wpdb->prepare( "SELECT id FROM $table WHERE email = %s", $email ) );
+
+		if ( ! $id ) {
+			$wpdb->insert( $table, [
+				'full_name' => sanitize_text_field( $data['customer_name'] ?? '' ),
+				'email'     => $email,
+				'phone'     => sanitize_text_field( $data['customer_phone'] ?? '' ),
+			] );
+			$id = $wpdb->insert_id;
+		}
+
+		return $id;
 	}
 
 	/**
