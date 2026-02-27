@@ -13,6 +13,12 @@ document.addEventListener('alpine:init', () => {
         bookings: [],
         services: [],
         staff: [],
+        settings: {
+            business_name: 'Larastech',
+            pro_whatsapp_token: '',
+            pro_telegram_token: '',
+            pro_google_sheet_id: ''
+        },
         toasts: [],
         modal: {
             show: false,

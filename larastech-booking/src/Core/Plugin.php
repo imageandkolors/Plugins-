@@ -63,5 +63,6 @@ class Plugin {
 		\Larastech\Booking\Handlers\AjaxHandler::init();
 		\Larastech\Booking\Frontend\Assets::init();
 		\Larastech\Booking\Frontend\Shortcode::init();
+		\Larastech\Booking\Pro\ProManager::get_instance();
 	}
 }

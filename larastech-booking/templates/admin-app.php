@@ -136,6 +136,31 @@
                                 <div class="grid grid-cols-6 gap-6">
                                     <div class="col-span-6 sm:col-span-3">
                                         <label class="block text-sm font-medium text-gray-700">Business Name</label>
+                                        <input type="text" x-model="settings.business_name" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                    </div>
+                                </div>
+
+                                <div class="border-t pt-6">
+                                    <h3 class="text-lg font-medium leading-6 text-gray-900">Pro Integrations</h3>
+                                    <p class="mt-1 text-sm text-gray-500">Enable advanced notifications and sync.</p>
+                                    <div class="mt-4 space-y-4">
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">WhatsApp API Token</label>
+                                            <input type="password" x-model="settings.pro_whatsapp_token" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="••••••••">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Telegram Bot Token</label>
+                                            <input type="password" x-model="settings.pro_telegram_token" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="••••••••">
+                                        </div>
+                                        <div>
+                                            <label class="block text-sm font-medium text-gray-700">Google Sheet ID</label>
+                                            <input type="text" x-model="settings.pro_google_sheet_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="1abc...XYZ">
+                                        </div>
+                                    </div>
+                                </div>
+                                <div class="grid grid-cols-6 gap-6">
+                                    <div class="col-span-6 sm:col-span-3">
+                                        <label class="block text-sm font-medium text-gray-700">Business Name</label>
                                         <input type="text" value="Larastech" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                                     </div>
                                 </div>
