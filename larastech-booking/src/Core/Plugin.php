@@ -61,5 +61,7 @@ class Plugin {
 		\Larastech\Booking\API\BaseController::register();
 		\Larastech\Booking\Core\Roles::init();
 		\Larastech\Booking\Handlers\AjaxHandler::init();
+		\Larastech\Booking\Frontend\Assets::init();
+		\Larastech\Booking\Frontend\Shortcode::init();
 	}
 }
