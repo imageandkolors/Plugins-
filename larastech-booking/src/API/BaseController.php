@@ -23,6 +23,9 @@ class BaseController extends WP_REST_Controller {
 	public static function register() {
 		$instance = new self();
 		add_action( 'rest_api_init', [ $instance, 'register_routes' ] );
+
+		$booking_controller = new BookingController();
+		add_action( 'rest_api_init', [ $booking_controller, 'register_routes' ] );
 	}
 
 	/**
