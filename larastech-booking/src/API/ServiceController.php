@@ -46,6 +46,7 @@ class ServiceController extends WP_REST_Controller {
 	}
 
 	public function create_item( $request ) {
+		delete_transient( 'lt_active_services' );
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_services';
 		$wpdb->insert( $table, [
@@ -59,6 +60,7 @@ class ServiceController extends WP_REST_Controller {
 	}
 
 	public function update_item( $request ) {
+		delete_transient( 'lt_active_services' );
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_services';
 		$wpdb->update( $table, [
@@ -72,6 +74,7 @@ class ServiceController extends WP_REST_Controller {
 	}
 
 	public function delete_item( $request ) {
+		delete_transient( 'lt_active_services' );
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_services';
 		$wpdb->delete( $table, [ 'id' => $request['id'] ] );
@@ -79,9 +82,17 @@ class ServiceController extends WP_REST_Controller {
 	}
 
 	public function get_items( $request ) {
+		$cached = get_transient( 'lt_active_services' );
+		if ( false !== $cached ) {
+			return rest_ensure_response( $cached );
+		}
+
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_services';
 		$results = $wpdb->get_results( "SELECT * FROM $table WHERE status = 'active'" );
+
+		set_transient( 'lt_active_services', $results, DAY_IN_SECONDS );
+
 		return rest_ensure_response( $results );
 	}
 }

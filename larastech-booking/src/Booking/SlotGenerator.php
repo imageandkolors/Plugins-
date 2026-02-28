@@ -22,6 +22,13 @@ class SlotGenerator {
 	 * Generate available slots for a staff member on a specific date for a service.
 	 */
 	public function generate_slots( $staff_id, $service_id, $date ) {
+		$cache_key = "lt_slots_{$staff_id}_{$service_id}_{$date}";
+		$cached_slots = get_transient( $cache_key );
+
+		if ( false !== $cached_slots ) {
+			return $cached_slots;
+		}
+
 		// 1. Get service duration.
 		global $wpdb;
 		$service = $wpdb->get_row( $wpdb->prepare(
@@ -75,6 +82,8 @@ class SlotGenerator {
 				$current->add( new DateInterval( 'PT' . $duration . 'M' ) );
 			}
 		}
+
+		set_transient( $cache_key, $slots, HOUR_IN_SECONDS );
 
 		return $slots;
 	}

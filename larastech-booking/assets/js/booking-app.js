@@ -74,10 +74,19 @@ document.addEventListener('alpine:init', () => {
 
         async fetchSlots() {
             if (!this.selectedDate || !this.selectedStaff || !this.selectedService) return;
+
+            // Simple SPA Caching for slots
+            const cacheKey = `slots_${this.selectedStaff.id}_${this.selectedService.id}_${this.selectedDate}`;
+            if (this[cacheKey]) {
+                this.slots = this[cacheKey];
+                return;
+            }
+
             this.loading = true;
             try {
                 const response = await fetch(`${ltBookingData.rest_url}/bookings/slots?staff_id=${this.selectedStaff.id}&service_id=${this.selectedService.id}&date=${this.selectedDate}`);
                 this.slots = await response.json();
+                this[cacheKey] = this.slots; // Cache in state
             } catch (e) {
                 this.showToast('Failed to load slots', 'error');
             }

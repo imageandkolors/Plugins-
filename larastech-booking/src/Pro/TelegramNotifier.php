@@ -17,9 +17,16 @@ class TelegramNotifier {
 		$bot_token = Settings::get( 'pro_telegram_token' );
 		if ( ! $bot_token ) return;
 
-		// Placeholder for Telegram Bot API call.
-		Logger::log( "Telegram: Sending $type notification for booking $booking_id" );
+		// Async-style: Use wp_schedule_single_event for non-blocking execution.
+		wp_schedule_single_event( time(), 'lt_booking_telegram_notify', [ $booking_id, $type ] );
 
-		// wp_remote_get( "https://api.telegram.org/bot$bot_token/sendMessage?..." );
+		Logger::log( "Telegram: Queued $type notification for booking $booking_id" );
+	}
+
+	/**
+	 * Actual delivery logic.
+	 */
+	public static function deliver( $booking_id, $type ) {
+		// wp_remote_get( ... );
 	}
 }

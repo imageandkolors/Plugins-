@@ -17,9 +17,17 @@ class WhatsAppNotifier {
 		$token = Settings::get( 'pro_whatsapp_token' );
 		if ( ! $token ) return;
 
-		// Placeholder for WhatsApp Cloud API call.
-		Logger::log( "WhatsApp: Sending $type notification for booking $booking_id" );
+		// Async-style: Use non-blocking wp_remote_post or schedule a cron.
+		// For high performance, we schedule a single event or use a queue.
+		wp_schedule_single_event( time(), 'lt_booking_whatsapp_notify', [ $booking_id, $type ] );
 
-		// wp_remote_post( 'https://graph.facebook.com/v13.0/.../messages', ... );
+		Logger::log( "WhatsApp: Queued $type notification for booking $booking_id" );
+	}
+
+	/**
+	 * Actual delivery logic (called by cron).
+	 */
+	public static function deliver( $booking_id, $type ) {
+		// wp_remote_post( '...', [ 'blocking' => true, 'timeout' => 5 ] );
 	}
 }

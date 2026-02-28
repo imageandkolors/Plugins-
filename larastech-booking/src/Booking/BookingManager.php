@@ -79,6 +79,9 @@ class BookingManager {
 
 		$booking_id = $wpdb->insert_id;
 
+		// Invalidate slots cache.
+		delete_transient( "lt_slots_{$data['staff_id']}_{$data['service_id']}_{$data['booking_date']}" );
+
 		/**
 		 * Hook: booking_created.
 		 */
@@ -122,6 +125,10 @@ class BookingManager {
 		$updated = $this->repository->update( $booking_id, [ 'status' => $status ] );
 
 		if ( $updated ) {
+			$booking = $this->repository->find( $booking_id );
+			if ( $booking ) {
+				delete_transient( "lt_slots_{$booking->staff_id}_{$booking->service_id}_{$booking->booking_date}" );
+			}
 			do_action( 'lt_booking_updated', $booking_id, $status );
 		}
 

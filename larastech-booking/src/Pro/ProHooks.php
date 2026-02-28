@@ -16,6 +16,10 @@ class ProHooks {
 		// Hook into Free plugin events.
 		add_action( 'lt_booking_created', [ __CLASS__, 'on_booking_created' ], 10, 2 );
 		add_action( 'lt_booking_updated', [ __CLASS__, 'on_booking_updated' ], 10, 2 );
+
+		// Register Pro async delivery hooks.
+		add_action( 'lt_booking_whatsapp_notify', [ 'Larastech\Booking\Pro\WhatsAppNotifier', 'deliver' ], 10, 2 );
+		add_action( 'lt_booking_telegram_notify', [ 'Larastech\Booking\Pro\TelegramNotifier', 'deliver' ], 10, 2 );
 	}
 
 	/**

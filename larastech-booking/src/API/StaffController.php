@@ -46,6 +46,7 @@ class StaffController extends WP_REST_Controller {
 	}
 
 	public function create_item( $request ) {
+		delete_transient( 'lt_active_staff' );
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_staff';
 		$wpdb->insert( $table, [
@@ -58,6 +59,7 @@ class StaffController extends WP_REST_Controller {
 	}
 
 	public function update_item( $request ) {
+		delete_transient( 'lt_active_staff' );
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_staff';
 		$wpdb->update( $table, [
@@ -70,6 +72,7 @@ class StaffController extends WP_REST_Controller {
 	}
 
 	public function delete_item( $request ) {
+		delete_transient( 'lt_active_staff' );
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_staff';
 		$wpdb->delete( $table, [ 'id' => $request['id'] ] );
@@ -77,9 +80,17 @@ class StaffController extends WP_REST_Controller {
 	}
 
 	public function get_items( $request ) {
+		$cached = get_transient( 'lt_active_staff' );
+		if ( false !== $cached ) {
+			return rest_ensure_response( $cached );
+		}
+
 		global $wpdb;
 		$table = $wpdb->prefix . 'larastech_staff';
 		$results = $wpdb->get_results( "SELECT * FROM $table WHERE status = 'active'" );
+
+		set_transient( 'lt_active_staff', $results, DAY_IN_SECONDS );
+
 		return rest_ensure_response( $results );
 	}
 }

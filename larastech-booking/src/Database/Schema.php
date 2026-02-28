@@ -91,7 +91,8 @@ class Schema {
 			KEY service_id  (service_id),
 			KEY staff_id  (staff_id),
 			KEY customer_id  (customer_id),
-			KEY booking_date  (booking_date)
+			KEY booking_date  (booking_date),
+			KEY status  (status)
 		) $charset_collate;";
 
 		// Availability Table.
