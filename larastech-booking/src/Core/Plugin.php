@@ -42,7 +42,7 @@ class Plugin {
 	 */
 	private function define_constants() {
 		if ( ! defined( 'LT_BOOKING_PRO_ACTIVE' ) ) {
-			define( 'LT_BOOKING_PRO_ACTIVE', class_exists( 'Larastech\BookingPro\Core\Plugin' ) );
+			define( 'LT_BOOKING_PRO_ACTIVE', class_exists( 'Larastech\BookingPro\Core\ProManager' ) );
 		}
 	}
 
@@ -63,6 +63,6 @@ class Plugin {
 		\Larastech\Booking\Handlers\AjaxHandler::init();
 		\Larastech\Booking\Frontend\Assets::init();
 		\Larastech\Booking\Frontend\Shortcode::init();
-		\Larastech\Booking\Pro\ProManager::get_instance();
+		\Larastech\Booking\Admin\Menu::init();
 	}
 }
