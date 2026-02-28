@@ -34,10 +34,14 @@ class ProManager {
 	}
 
 	/**
-	 * Check if Pro is active.
+	 * Check if Pro is active and licensed.
 	 */
 	public function is_pro() {
-		return defined( 'LT_BOOKING_PRO_ACTIVE' ) && LT_BOOKING_PRO_ACTIVE;
+		$pro_active = defined( 'LT_BOOKING_PRO_ACTIVE' ) && LT_BOOKING_PRO_ACTIVE;
+		if ( ! $pro_active ) {
+			return false;
+		}
+		return LicenseManager::is_active();
 	}
 
 	/**

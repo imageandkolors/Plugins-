@@ -118,4 +118,35 @@ class BookingController extends WP_REST_Controller {
 
 		return rest_ensure_response( $bookings );
 	}
+
+	/**
+	 * Get a single booking.
+	 */
+	public function get_item( $request ) {
+		$repository = new BookingRepository();
+		$booking = $repository->find( $request['id'] );
+
+		if ( ! $booking ) {
+			return new \WP_Error( 'not_found', 'Booking not found', [ 'status' => 404 ] );
+		}
+
+		return rest_ensure_response( $booking );
+	}
+
+	/**
+	 * Update a booking (e.g., status change).
+	 */
+	public function update_item( $request ) {
+		$manager = new BookingManager();
+		$status  = sanitize_text_field( $request->get_param( 'status' ) );
+		$id      = (int) $request['id'];
+
+		$success = $manager->update_status( $id, $status );
+
+		if ( ! $success ) {
+			return new \WP_Error( 'update_failed', 'Failed to update booking status', [ 'status' => 400 ] );
+		}
+
+		return rest_ensure_response( [ 'success' => true ] );
+	}
 }

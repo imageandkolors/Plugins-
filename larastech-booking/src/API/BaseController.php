@@ -38,6 +38,9 @@ class BaseController extends WP_REST_Controller {
 
 		$customer_controller = new CustomerController();
 		add_action( 'rest_api_init', [ $customer_controller, 'register_routes' ] );
+
+		$license_controller = new LicenseController();
+		add_action( 'rest_api_init', [ $license_controller, 'register_routes' ] );
 	}
 
 	/**

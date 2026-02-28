@@ -123,6 +123,37 @@
                     </div>
                 </template>
 
+                <!-- View: License -->
+                <template x-if="view === 'license'">
+                    <div x-transition>
+                        <h1 class="text-2xl font-semibold text-gray-900 mb-6">License & Monetization</h1>
+                        <div class="bg-white shadow p-6 rounded-lg max-w-2xl">
+                            <div class="space-y-6">
+                                <div>
+                                    <div class="flex items-center space-x-2">
+                                        <span :class="license.is_active ? 'bg-green-100 text-green-800' : 'bg-red-100 text-red-800'" class="px-2 py-1 text-xs font-bold rounded-full" x-text="license.is_active ? 'PRO ACTIVE' : 'FREE VERSION'"></span>
+                                    </div>
+                                    <p class="mt-2 text-sm text-gray-500">Upgrade to Pro to unlock WhatsApp, Telegram, and Google Sheets integrations.</p>
+                                </div>
+
+                                <div x-show="!license.is_active">
+                                    <label class="block text-sm font-medium text-gray-700">License Key</label>
+                                    <div class="mt-1 flex space-x-2">
+                                        <input type="text" x-model="licenseKey" placeholder="PRO-123-VALID" class="flex-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
+                                        <button @click="activateLicense()" class="bg-blue-600 text-white px-4 py-2 rounded-md hover:bg-blue-700 transition">Activate</button>
+                                    </div>
+                                    <p class="mt-4 text-xs text-gray-400">Don't have a key? <a href="#" class="text-blue-500 underline">Buy Pro Now</a></p>
+                                </div>
+
+                                <div x-show="license.is_active" class="bg-gray-50 p-4 rounded-md">
+                                    <p class="text-sm font-medium text-gray-700">Current Key: <span class="font-mono" x-text="license.data?.key"></span></p>
+                                    <button @click="deactivateLicense()" class="mt-4 text-red-600 text-sm hover:underline">Deactivate License</button>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </template>
+
                 <!-- View: Settings -->
                 <template x-if="view === 'settings'">
                     <div x-transition>
@@ -156,12 +187,6 @@
                                             <label class="block text-sm font-medium text-gray-700">Google Sheet ID</label>
                                             <input type="text" x-model="settings.pro_google_sheet_id" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3" placeholder="1abc...XYZ">
                                         </div>
-                                    </div>
-                                </div>
-                                <div class="grid grid-cols-6 gap-6">
-                                    <div class="col-span-6 sm:col-span-3">
-                                        <label class="block text-sm font-medium text-gray-700">Business Name</label>
-                                        <input type="text" value="Larastech" class="mt-1 block w-full border border-gray-300 rounded-md shadow-sm py-2 px-3">
                                     </div>
                                 </div>
                                 <div class="pt-5">

@@ -26,6 +26,8 @@ class ProHooks {
 	 * Trigger Pro actions on booking creation.
 	 */
 	public static function on_booking_created( $booking_id, $data ) {
+		if ( ! LicenseManager::is_active() ) return;
+
 		// 1. WhatsApp Notification.
 		WhatsAppNotifier::send_notification( $booking_id, 'created' );
 
@@ -40,6 +42,8 @@ class ProHooks {
 	 * Trigger Pro actions on booking update.
 	 */
 	public static function on_booking_updated( $booking_id, $status ) {
+		if ( ! LicenseManager::is_active() ) return;
+
 		WhatsAppNotifier::send_notification( $booking_id, $status );
 		TelegramNotifier::send_notification( $booking_id, $status );
 		GoogleSheetsSync::sync_booking( $booking_id );

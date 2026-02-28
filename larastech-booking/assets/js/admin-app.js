@@ -7,7 +7,8 @@ document.addEventListener('alpine:init', () => {
             { name: 'Bookings', view: 'bookings' },
             { name: 'Services', view: 'services' },
             { name: 'Staff', view: 'staff' },
-            { name: 'Settings', view: 'settings' }
+            { name: 'Settings', view: 'settings' },
+            { name: 'License', view: 'license' }
         ],
         stats: { today: 0, customers: 0 },
         bookings: [],
@@ -19,6 +20,8 @@ document.addEventListener('alpine:init', () => {
             pro_telegram_token: '',
             pro_google_sheet_id: ''
         },
+        license: { is_active: false, data: {} },
+        licenseKey: '',
         toasts: [],
         modal: {
             show: false,
@@ -31,6 +34,7 @@ document.addEventListener('alpine:init', () => {
             this.fetchBookings();
             this.fetchServices();
             this.fetchStaff();
+            this.fetchLicenseStatus();
         },
 
         async fetchStats() {
@@ -60,6 +64,43 @@ document.addEventListener('alpine:init', () => {
         async fetchStaff() {
             const response = await fetch(`${ltBookingData.rest_url}/staff`);
             this.staff = await response.json();
+        },
+
+        async fetchLicenseStatus() {
+            const response = await fetch(`${ltBookingData.rest_url}/license/status`, {
+                headers: { 'X-WP-Nonce': ltBookingData.nonce }
+            });
+            if (response.ok) {
+                const data = await response.json();
+                this.license.is_active = data.is_active;
+                this.license.data = data.license;
+            }
+        },
+
+        async activateLicense() {
+            if (!this.licenseKey) return;
+            const response = await fetch(`${ltBookingData.rest_url}/license/activate`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json', 'X-WP-Nonce': ltBookingData.nonce },
+                body: JSON.stringify({ key: this.licenseKey })
+            });
+            if (response.ok) {
+                this.showToast('Pro activated!');
+                this.fetchLicenseStatus();
+            } else {
+                this.showToast('Invalid key', 'error');
+            }
+        },
+
+        async deactivateLicense() {
+            const response = await fetch(`${ltBookingData.rest_url}/license/deactivate`, {
+                method: 'POST',
+                headers: { 'X-WP-Nonce': ltBookingData.nonce }
+            });
+            if (response.ok) {
+                this.showToast('License deactivated');
+                this.fetchLicenseStatus();
+            }
         },
 
         async updateBookingStatus(id, status) {
